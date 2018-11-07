@@ -6,7 +6,7 @@
 #    By: geargenc <geargenc@student.42.fr>          +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2018/02/24 17:11:19 by geargenc          #+#    #+#              #
-#    Updated: 2018/10/24 10:51:03 by geargenc         ###   ########.fr        #
+#    Updated: 2018/11/07 06:59:27 by geargenc         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -16,7 +16,7 @@ NAME			=	minishell
 
 CC				= 	gcc
 
-CFLAGS			=	-Wall -Wextra -Werror -I includes -I libft/includes
+CFLAGS			=	-Wall -Wextra -Werror -I includes -I libft/includes -fsanitize=address
 
 FILES			=	ft_config_varlist.c \
 					main.c

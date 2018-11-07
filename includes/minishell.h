@@ -6,7 +6,7 @@
 /*   By: geargenc <geargenc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2018/10/24 02:49:41 by geargenc          #+#    #+#             */
-/*   Updated: 2018/10/26 12:36:26 by geargenc         ###   ########.fr       */
+/*   Updated: 2018/11/07 11:52:53 by geargenc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -18,9 +18,8 @@
 # include <stdio.h>
 # include <unistd.h>
 # include <stdlib.h>
-# include <termios.h>
-# include <curses.h>
-# include <term.h>
+# include <sys/wait.h>
+# include <limits.h>
 
 # define BUFF_SIZE 32
 
@@ -31,33 +30,28 @@ typedef struct			s_varlist
 	struct s_varlist	*next;
 }						t_varlist;
 
-typedef struct			s_cmdlist
-{
-	char				*cmd;
-	struct s_cmdlist	*next;
-	struct s_cmdlist	*prev;
-}						t_cmdlist;
-
 typedef struct			s_env
 {
 	char				*prog_name;
 	t_varlist			*varlist;
-	t_cmdlist			*historic;
-	char				*buff;
-	size_t				buff_size;
-	size_t				buff_max;
-	size_t				cursor;
-	struct termios		init_term;
-	struct termios		edit_term;
+	int					exit;
+	char				buff[PATH_MAX];
+	int					errno;
 }						t_env;
+
+typedef struct			s_btin
+{
+	char				*name;
+	int					(*f)(t_env *, char **argv);
+}						t_btin;
 
 /*
 **						ft_config_varlist.c
 */
 
-int						ft_new_varlist(char *var, char *eq,
-						t_varlist **begin, t_varlist **cur);
-t_varlist				*ft_config_varlist(char **envp);
-
+t_varlist				*ft_new_varlist(char *var, char *eq);
+int						ft_config_varlist(t_varlist **list, char **envp);
+void					ft_free_varlist(t_varlist *list);
+char					**ft_varlist_to_tab(t_varlist *varlist);
 
 #endif
