@@ -6,7 +6,7 @@
 /*   By: geargenc <geargenc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2018/11/07 01:47:45 by geargenc          #+#    #+#             */
-/*   Updated: 2018/11/07 14:00:04 by geargenc         ###   ########.fr       */
+/*   Updated: 2018/11/09 20:13:33 by geargenc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -73,15 +73,140 @@ int			ft_exe(t_env *env, char *prog, char **split)
 	return (0);
 }
 
+int					ft_echo_btin(t_env *env, char **argv)
+{
+	int				i;
+
+	(void)env;
+	i = 1;
+	while (argv[i])
+	{
+		ft_putstr(argv[i]);
+		i++;
+		if (argv[i])
+			ft_putstr(" ");
+	}
+	ft_putstr("\n");
+	return (0);
+}
+
+int					ft_env_btin(t_env *env, char **argv);
+
+int					ft_setenv(char *var, t_varlist **list)
+{
+	char			*chr;
+
+	if (!(chr = ft_strchr(var, '=')))
+		return (0);
+	while (*list && ft_strncmp(var, (*list)->name, chr - var))
+		list = &((*list)->next);
+	if (*list)
+	{
+		free((*list)->value);
+		if (!((*list)->value = ft_strdup(chr + 1)))
+			return (1);
+	}
+	else if (!(*list = ft_new_varlist(var, chr)))
+		return (1);
+	return (0);
+}
+
+int					ft_setenv_btin(t_env *env, char **argv)
+{
+	if (argv[1] == NULL)
+		return (ft_env_btin(env, argv));
+	return (ft_setenv(argv[1], &(env->varlist)));
+}
+
+int					ft_unsetenv_btin(t_env *env, char **argv)
+{
+	t_varlist		*tmp;
+	t_varlist		**list;
+
+	if (!argv[1])
+		return (0);
+	list = &(env->varlist);
+	while (*list && ft_strcmp((*list)->name, argv[1]))
+		list = &((*list)->next);
+	if (*list)
+	{
+		tmp = *list;
+		*list = (*list)->next;
+		free(tmp->name);
+		free(tmp->value);
+		free(tmp);
+	}
+	return (0);
+}
+
+int					ft_env_btin(t_env *env, char **argv)
+{
+	t_varlist		*list;
+
+	(void)argv;
+	list = env->varlist;
+	while (list)
+	{
+		ft_putstr(list->name);
+		ft_putstr("=");
+		ft_putstr(list->value);
+		ft_putstr("\n");
+		list = list->next;
+	}
+	return (0);
+}
+
+int					ft_exit_btin(t_env *env, char **argv)
+{
+	(void)argv;
+	env->exit = 1;
+	return (0);
+}
+
+char		*ft_getenv(char *name, t_varlist *varlist);
+
+int					ft_cd(t_env *env, char *dir)
+{
+	char			*pwdtmp;
+	char			*oldpwdtmp;
+
+	if (!dir)
+		return (ft_cd(env, ft_getenv("HOME", env->varlist)));
+	else if (!ft_strcmp(dir, "-"))
+		return (ft_cd(env, ft_getenv("OLDPWD", env->varlist)));
+	else if (access(dir, 0))
+		ft_error3(env->prog_name, "no such file or directory", dir);
+	else if (chdir(dir) < 0)
+		ft_error3(env->prog_name, "permission denied", dir);
+	else
+	{
+		if (!(pwdtmp = getcwd(NULL, 0)) ||
+			!(pwdtmp = ft_strjoinfree("PWD=", pwdtmp, 2)) ||
+			!(oldpwdtmp = ft_strjoin("OLDPWD=",
+			ft_getenv("PWD", env->varlist))) ||
+			ft_setenv(pwdtmp, &(env->varlist)) ||
+			ft_setenv(oldpwdtmp, &(env->varlist)))
+			return (1);
+		free(pwdtmp);
+		free(oldpwdtmp);
+	}
+	return (0);
+}
+
+int					ft_cd_btin(t_env *env, char **argv)
+{
+	return (ft_cd(env, argv[1]));
+}
+
 t_btin				*ft_btintab(int i)
 {
 	static t_btin	btintab[] = {
-		// {"echo", &ft_echo_btin},
-		// {"cd", &ft_cd_btin},
-		// {"setenv", &ft_setenv_btin},
-		// {"unsetenv", &ft_unsetenv_btin},
-		// {"env", &ft_env_btin},
-		// {"exit", &ft_exit_btin},
+		{"echo", &ft_echo_btin},
+		{"cd", &ft_cd_btin},
+		{"setenv", &ft_setenv_btin},
+		{"unsetenv", &ft_unsetenv_btin},
+		{"env", &ft_env_btin},
+		{"exit", &ft_exit_btin},
 		{"", NULL}
 	};
 
@@ -102,9 +227,14 @@ int			ft_btin(char **split)
 
 char		*ft_getenv(char *name, t_varlist *varlist)
 {
+	int		i;
+
 	while (varlist)
 	{
-		if (!ft_strcmp(name, varlist->name))
+		i = 0;
+		while (name[i] && name[i] != '\\' && name[i] == varlist->name[i])
+			i++;
+		if (!varlist->name[i] && (name[i] == '\\' || !name[i]))
 			return (varlist->value);
 		varlist = varlist->next;
 	}
@@ -180,16 +310,109 @@ int			ft_cmd(t_env *env, char **split)
 	return (0);
 }
 
+char			*ft_nulltoempty(char *str)
+{
+	static char	*empty = "";
+
+	return (str ? str : empty);
+}
+
+char		*ft_varexpanse2(t_env *env, char *arg, size_t size)
+{
+	char	*var;
+	char	*res;
+	int		i;
+	int		j;
+
+	if (!(res = (char *)malloc((size + 1) * sizeof(char))))
+		return (NULL);
+	i = 0;
+	j = 0;
+	while (arg[i])
+	{
+		if (arg[i] == '$')
+		{
+			var = ft_nulltoempty(ft_getenv(arg + i + 1, env->varlist));
+			strcpy(res + j, var);
+			j = j + ft_strlen(var);
+			while (arg[i] && (i == 0 || arg[i - 1] != '\\'))
+				i++;
+		}
+		while (arg[i] && arg[i] != '$')
+			res[j++] = arg[i++];
+	}
+	res[j] = '\0';
+	return (res);
+}
+
+char		*ft_varexpanse(t_env *env, char *arg)
+{
+	int		i;
+	size_t	size;
+
+	i = 0;
+	size = 0;
+	if (!ft_strchr(arg, '$'))
+		return (arg);
+	while (arg[i])
+	{
+		if (arg[i] == '$')
+		{
+			size = size + ft_strlen(ft_nulltoempty(ft_getenv(arg + i + 1,
+				env->varlist)));
+			while (arg[i] && (i == 0 || arg[i - 1] != '\\'))
+				i++;
+		}
+		while (arg[i] && arg[i] != '$')
+		{
+			i++;
+			size++;
+		}
+	}
+	return (ft_varexpanse2(env, arg, size));
+}
+
+char		*ft_homeexpanse(t_env *env, char *arg)
+{
+	char	*res;
+	char	*var;
+
+	if (arg[0] == '~')
+	{
+		var = ft_nulltoempty(ft_getenv("HOME", env->varlist));
+		if (!(res = (char *)malloc((ft_strlen(var) + ft_strlen(arg + 1) + 1)
+			* sizeof(char))))
+			return (NULL);
+		ft_strcpy(res, var);
+		ft_strcat(res, arg + 1);
+	}
+	else
+		return (arg);
+	return (res);
+}
+
 int			ft_expanse(t_env *env, char **split)
 {
+	char	*tmp;
 	int		i;
 
 	i = 0;
-	while (split[i]);
+	while (split[i])
 	{
-		if (ft_varexpanse(env, &(split + i)) ||
-			ft_homexpanse(env, &(split + i)))
+		if (!(tmp = ft_varexpanse(env, split[i])))
 			return (1);
+		else if (tmp != split[i])
+		{
+			free(split[i]);
+			split[i] = tmp;
+		}
+		if (!(tmp = ft_homeexpanse(env, split[i])))
+			return (1);
+		else if (tmp != split[i])
+		{
+			free(split[i]);
+			split[i] = tmp;
+		}
 		i++;
 	}
 	return (0);
@@ -223,7 +446,8 @@ int			ft_minishell(t_env *env)
 {
 	char	*input;
 
-	while (1)
+	env->exit = 0;
+	while (!env->exit)
 	{
 		ft_putstr_fd("$> ", 1);
 		if (get_next_line(0, &input) <= 0 ||

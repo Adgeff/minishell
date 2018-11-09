@@ -6,7 +6,7 @@
 /*   By: geargenc <geargenc@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2018/10/24 02:52:43 by geargenc          #+#    #+#             */
-/*   Updated: 2018/11/07 07:11:27 by geargenc         ###   ########.fr       */
+/*   Updated: 2018/11/09 18:06:20 by geargenc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -20,6 +20,7 @@ t_varlist		*ft_new_varlist(char *var, char *eq)
 		(!(list->name = ft_strsub(var, 0, eq - var))) ||
 		(!(list->value = ft_strdup(eq + 1))))
 		return (NULL);
+	list->next = NULL;
 	return (list);
 }
 
@@ -41,8 +42,6 @@ int				ft_config_varlist(t_varlist **list, char **envp)
 		if (ft_config_varlist(list, envp + 1))
 			return (1);
 	}
-	else
-		*list = NULL;
 	return (0);
 }
 
@@ -60,32 +59,38 @@ void			ft_free_varlist(t_varlist *list)
 	}
 }
 
+int				ft_varlist_size(t_varlist *varlist)
+{
+	int			i;
+
+	i = 0;
+	while (varlist)
+	{
+		i++;
+		varlist = varlist->next;
+	}
+	return (i);
+}
+
 char			**ft_varlist_to_tab(t_varlist *varlist)
 {
-	t_varlist	*tmp;
 	char		**tab;
 	int			i;
 
-	tmp = varlist;
-	i = 0;
-	while (tmp)
-	{
-		i++;
-		tmp = tmp->next;
-	}
-	if (!(tab = (char **)malloc((i + 1) * sizeof(char *))))
+	if (!(tab = (char **)malloc((ft_varlist_size(varlist) + 1)
+		* sizeof(char *))))
 		return (NULL);
-	tmp = varlist;
 	i = 0;
-	while (tmp)
+	while (varlist)
 	{
-		if (!(tab[i] = (char *)malloc((ft_strlen(tmp->name) +
-			ft_strlen(tmp->value) + 2) * sizeof(char))))
+		if (!(tab[i] = (char *)malloc((ft_strlen(varlist->name) +
+			ft_strlen(varlist->value) + 2) * sizeof(char))))
 			return (NULL);
-		if (ft_strcpy(tab[i], tmp->name) && ft_strcat(tab[i], "=") &&
-			ft_strcat(tab[i], tmp->value))
+		ft_strcpy(tab[i], varlist->name);
+		ft_strcat(tab[i], "=");
+		ft_strcat(tab[i], varlist->value);
 		i++;
-		tmp = tmp->next;
+		varlist = varlist->next;
 	}
 	tab[i] = NULL;
 	return (tab);
